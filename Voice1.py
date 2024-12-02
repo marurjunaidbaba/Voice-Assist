@@ -1,5 +1,7 @@
 import speech_recognition as sr
 import requests
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 import pyaudio as pa
 
 recon = sr.Recognizer()
@@ -23,24 +25,53 @@ def get_weather(city):
     else:
         return "City not found."
 
+def get_artist_info(ar_name):
+    client_id = "5632466abe9043dbac18d5aaa1edc448"
+    client_secret = "3881b158f54745589b8cd5060ce7b147"
+
+    auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+    results = sp.search(q='artist:' + ar_name, type='artist')
+    items = results['artists']['items']
+    if len(items) > 0:
+        artist = items[0]
+        artist_info = f"Name: {artist['name']}\nFollowers: {artist['followers']['total']}\nGenres: {', '.join(artist['genres'])}\nPopularity: {artist['popularity']}\n"
+        return artist_info
+    else:
+        return "Artist not found."
+
+print("Say 'Hey Jarvis' to wake me up:")
 
 try:
     with mic as source:
-        print("Say the 'Code Word' to proceed: ")
+        recon.adjust_for_ambient_noise(source)
         audio = recon.listen(source)
-    
-    command = recon.recognize_google(audio).lower()
-    if command == "code word":
-        print("Hello Boss.")
-        print("Tell me the city for which you want the weather!")
+
+    wake_up_command = recon.recognize_google(audio).lower()
+    if "hey jarvis" in wake_up_command:
+        print("Hello Boss")
+
         with mic as source:
             recon.adjust_for_ambient_noise(source)
+            print("Say 'weather in [city]' for weather information or 'info about [artist]' for artist information.")
             audio = recon.listen(source)
-            text = recon.recognize_google(audio)
-        city = recon.recognize_google(audio)
-        print(f"You said: {city}")
-        weather_info = get_weather(city)
-        print(weather_info)
+
+        query = recon.recognize_google(audio)
+        print(f"You said: {query}")
+
+        if query.lower().startswith("weather in"):
+    #city = query.split("weather")[1].strip()
+            city = query.replace("weather in", "").strip()
+            weather_info = get_weather(city)
+            print(weather_info)
+        elif query.lower().startswith("info about"):
+            artist_name = query.replace("info about", "").strip()
+            artist_info = get_artist_info(artist_name)
+            print(artist_info)
+        else:
+            print("Sorry boss, I couldn't understand the request.")
+
+
 except sr.UnknownValueError:
     print("Sorry, I could not understand the audio.")
 except sr.RequestError:
